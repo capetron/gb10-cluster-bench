@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily read-only fleet maintenance collection
+
+[Timer]
+OnCalendar=*-*-* 06:15:00
+RandomizedDelaySec=120
+Persistent=true
+
+[Install]
+WantedBy=timers.target

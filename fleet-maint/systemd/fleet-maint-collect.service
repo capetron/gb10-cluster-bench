@@ -1,0 +1,16 @@
+[Unit]
+Description=fleet-maint collector: READ-ONLY OS/firmware/busy state of every host in the policy
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h
+Environment=PYTHONUNBUFFERED=1
+# Point these at your checkout and policy.
+Environment=FLEET_MAINT_POLICY=%h/gb10-cluster-bench/fleet-maint/policy.yaml
+# Environment=FLEET_MAINT_NOTIFY=/usr/local/bin/my-notify-hook
+ExecCondition=/bin/sh -c "! test -f %h/.config/fleet-maint/kill"
+# notify auto: on Mondays (weekly table) and on days the alert set changed.
+ExecStart=/usr/bin/python3 %h/gb10-cluster-bench/fleet-maint/fleet-maint.py collect --notify auto
+TimeoutStartSec=1500
+StandardOutput=journal
+StandardError=journal

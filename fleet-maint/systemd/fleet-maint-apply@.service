@@ -1,0 +1,23 @@
+[Unit]
+Description=fleet-maint applier for class %i (PRIVILEGED; fails closed without the approval entry "# fleet-maint-%i")
+# Install: cp fleet-maint-apply@.service fleet-maint-apply-<class>.timer ~/.config/systemd/user/
+#          systemctl --user daemon-reload
+# Enable ONLY after the policy is reviewed AND the approval entry is written (see README):
+#          systemctl --user enable --now fleet-maint-apply-<class>.timer
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h
+Environment=PYTHONUNBUFFERED=1
+Environment=FLEET_MAINT_POLICY=%h/gb10-cluster-bench/fleet-maint/policy.yaml
+# Environment=FLEET_MAINT_NOTIFY=/usr/local/bin/my-notify-hook
+ExecCondition=/bin/sh -c "! test -f %h/.config/fleet-maint/kill && ! test -f %h/.config/fleet-maint/pause"
+ExecStart=/usr/bin/python3 %h/gb10-cluster-bench/fleet-maint/fleet-maint.py apply --class %i
+# 0 done/nothing to do, 4 kill switch, 5 refused (no approval), 6 deferred (busy/window) are
+# outcomes, not faults. 1 failed and 3 canary-failed turn the unit red.
+SuccessExitStatus=0 4 5 6
+# A pod run (8 hosts, reboots, firmware capsules) can take hours; never kill it mid-apt.
+TimeoutStartSec=6h
+KillMode=process
+StandardOutput=journal
+StandardError=journal

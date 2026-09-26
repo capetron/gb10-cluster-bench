@@ -1,0 +1,113 @@
+{
+ "base": "http://rtx-pro-6000-server:9401/v1",
+ "model": "qwen3.8-27b-fp8",
+ "max_tokens": 256,
+ "pad_words": 0,
+ "thinking": false,
+ "measured_at": "2026-09-23T15:50:11-0400",
+ "rows": [
+  {
+   "concurrency": 1,
+   "ok": 1,
+   "failed": 0,
+   "wall_s": 3.2,
+   "aggregate_tok_s": 80.1,
+   "prompt_tokens_median": 39,
+   "requests_per_min": 18.8,
+   "per_stream_tok_s_median": 82.9,
+   "ttft_p50_s": 0.108,
+   "ttft_p95_s": 0.108,
+   "ttft_max_s": 0.108,
+   "errors": []
+  },
+  {
+   "concurrency": 2,
+   "ok": 2,
+   "failed": 0,
+   "wall_s": 3.57,
+   "aggregate_tok_s": 143.4,
+   "prompt_tokens_median": 39.5,
+   "requests_per_min": 33.6,
+   "per_stream_tok_s_median": 77.5,
+   "ttft_p50_s": 0.227,
+   "ttft_p95_s": 0.227,
+   "ttft_max_s": 0.227,
+   "errors": []
+  },
+  {
+   "concurrency": 4,
+   "ok": 4,
+   "failed": 0,
+   "wall_s": 3.38,
+   "aggregate_tok_s": 303.1,
+   "prompt_tokens_median": 40.0,
+   "requests_per_min": 71.0,
+   "per_stream_tok_s_median": 82.9,
+   "ttft_p50_s": 0.101,
+   "ttft_p95_s": 0.103,
+   "ttft_max_s": 0.103,
+   "errors": []
+  },
+  {
+   "concurrency": 8,
+   "ok": 8,
+   "failed": 0,
+   "wall_s": 3.6,
+   "aggregate_tok_s": 568.8,
+   "prompt_tokens_median": 40.0,
+   "requests_per_min": 133.3,
+   "per_stream_tok_s_median": 76.4,
+   "ttft_p50_s": 0.114,
+   "ttft_p95_s": 0.117,
+   "ttft_max_s": 0.117,
+   "errors": []
+  },
+  {
+   "concurrency": 16,
+   "ok": 16,
+   "failed": 0,
+   "wall_s": 4.34,
+   "aggregate_tok_s": 943.2,
+   "prompt_tokens_median": 41.0,
+   "requests_per_min": 221.1,
+   "per_stream_tok_s_median": 64.1,
+   "ttft_p50_s": 0.158,
+   "ttft_p95_s": 0.164,
+   "ttft_max_s": 0.164,
+   "errors": []
+  },
+  {
+   "concurrency": 32,
+   "ok": 32,
+   "failed": 0,
+   "wall_s": 6.03,
+   "aggregate_tok_s": 1358.0,
+   "prompt_tokens_median": 41.0,
+   "requests_per_min": 318.3,
+   "per_stream_tok_s_median": 46.4,
+   "ttft_p50_s": 0.257,
+   "ttft_p95_s": 0.284,
+   "ttft_max_s": 0.285,
+   "errors": []
+  },
+  {
+   "concurrency": 48,
+   "ok": 48,
+   "failed": 0,
+   "wall_s": 10.32,
+   "aggregate_tok_s": 1190.2,
+   "prompt_tokens_median": 42.0,
+   "requests_per_min": 278.9,
+   "per_stream_tok_s_median": 46.6,
+   "ttft_p50_s": 0.346,
+   "ttft_p95_s": 6.011,
+   "ttft_max_s": 6.043,
+   "errors": []
+  }
+ ],
+ "notes": "Re-measurement of the 2026-09-21 run on the same live vLLM service (unchanged flags: TP=1, max-model-len 131072, max-num-seqs 32, gpu-mem-util 0.90, MTP spec-decode 2, prefix caching). Reproduces it within noise: c1 80.1 vs 75.9, c32 1358.0 vs 1354.5, c48 1190.2 vs 1182.4 aggregate tok/s, with the same throughput knee at c32 and the same TTFT p95 cliff at c48 (max_num_seqs=32 means 16 requests queue). Runs on ONE Max-Q card (GPU 0); the other three GPUs were untouched. Driven from client, 0.65 ms RTT.",
+ "_provenance": {
+  "published_by": "Petronella Technology Group, Inc.",
+  "note": "Hostnames and addresses replaced with role names. Internal quality-eval blocks removed; speed, prefill, power and launch records are unchanged."
+ }
+}

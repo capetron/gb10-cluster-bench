@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly GB10 pod maintenance window (Sun 02:30). Ship it DISABLED.
+
+[Timer]
+OnCalendar=Sun *-*-* 02:30:00
+Unit=fleet-maint-apply@gb10-pod.service
+Persistent=false
+
+[Install]
+WantedBy=timers.target

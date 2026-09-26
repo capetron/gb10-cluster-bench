@@ -1,0 +1,118 @@
+# fleet-maint example policy: which hosts may be updated automatically, how, and when.
+#
+# Copy to fleet-maint/policy.yaml (or point FLEET_MAINT_POLICY at your copy) and replace the
+# host names with your own ssh aliases. Unknown keys are an ERROR on purpose, so a typo can
+# never silently weaken a class.
+#
+# An applier run for a class needs ALL of:
+#   1. auto_apply: true here,
+#   2. an unexpired entry in $FLEET_MAINT_APPROVALS (default ~/.config/fleet-maint/approvals.json)
+#      whose `contains` equals the class approval_tag AND whose `hosts` list covers the class
+#      (expiry at most 92 days out), for example:
+#        [{"contains": "# fleet-maint-gb10-pod", "expires": 1799999999,
+#          "note": "quarterly window approved by <name>", "hosts": ["edge1", "edge2", ...]}]
+#   3. the class window open (or a separate per-batch tag "<approval_tag>-now" with --now),
+#   4. no kill file ($FLEET_MAINT_KILL) and no pause file ($FLEET_MAINT_PAUSE),
+#   5. every host idle (busy rules below), and for as_set classes EVERY member idle,
+#   6. the class timer enabled (systemd/fleet-maint-apply@.service; ship it disabled).
+#
+# Start in REPORT-ONLY mode: run `fleet-maint.py collect` and `plan` for a few weeks before you
+# write any approval entry.
+
+defaults:
+  ssh_options: ["-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "-o", "ControlMaster=no",
+                "-o", "ControlPath=none", "-o", "ServerAliveInterval=15",
+                "-o", "ServerAliveCountMax=4"]
+
+classes:
+  gb10-pod:
+    description: "8x GB10 (4x MSI EdgeXpert, 4x NVIDIA DGX Spark). No BMC. Updated as a SET so firmware stays uniform for benchmarks."
+    auto_apply: true            # still inert without the approval entry + an enabled timer
+    approval_tag: "# fleet-maint-gb10-pod"
+    updates: full               # apt-get full-upgrade, --force-confdef --force-confold
+    firmware: true              # fwupdmgr refresh --force; fwupdmgr update -y --no-reboot-check
+    reboot: if-required         # capsule firmware applies at reboot
+    reboot_timeout_s: 1200      # 20 min, then STOP and report "needs hands" (no BMC; never power-cycle)
+    window: {days: [Sun], start: "02:00", end: "06:00", tz: America/New_York}
+    max_parallel: 2
+    canary: edge4
+    as_set: true                # one busy or unreachable member defers the whole pod
+    busy:
+      any_container: true       # any running container on a GB10 = a benchmark or a server
+      container_ignore: []      # names of always-on infrastructure containers to ignore
+      gpu_util_pct: 5
+      gpu_processes: true
+      llm_lab: true             # optional job hub (lab_hub below): GPU locks, GPU processes, live jobs
+      ollama_loaded: true
+    forbid_packages: ["^nvidia-dkms-"]   # never build a dkms module unattended
+    verify: {nics: true, gpu: true, failed_units: true, services: true, holds: true,
+             dkms: false, parity: gb10, firmware_cleared: true}
+
+  dgx-station:
+    description: "DGX Station GB300. Driver packages apt-held; RAID0 data volume."
+    auto_apply: false
+    manual_only_reason: "any kernel/driver/dkms change is manual-only until a reboot of this box has been tested by hand"
+    approval_tag: "# fleet-maint-dgx-station"
+    updates: security
+    firmware: false
+    reboot: never
+    uu_blacklist_required: true # alert while the host's own unattended-upgrades could pull a kernel/driver
+    require_reboot_tested: true # host flag reboot_tested must be set after a manual reboot test
+    window: {days: [Sun], start: "02:00", end: "05:00", tz: America/New_York}
+    busy: {any_container: true, gpu_util_pct: 5, gpu_processes: true, llm_lab: true, ollama_loaded: true}
+    forbid_packages: ["^nvidia-", "^libnvidia-", "^linux-(image|headers|modules|nvidia|generic|signed)",
+                      "dkms", "^cuda-drivers", "^mdadm$"]
+    verify: {nics: true, gpu: true, failed_units: true, services: true, holds: true, dkms: true}
+
+  gpu-inference-prod:
+    description: "GPU servers carrying production inference traffic."
+    auto_apply: false
+    manual_only_reason: "production inference; updates only in a window approved per batch"
+    uu_blacklist_required: true
+    approval_tag: "# fleet-maint-gpu-inference-prod"
+    updates: security
+    firmware: false
+    reboot: never
+    window: {days: [Sun], start: "03:00", end: "05:00", tz: America/New_York}
+    busy: {container_patterns: ["*vllm*", "*sglang*", "*ollama*", "*trtllm*", "lab-*"],
+           gpu_util_pct: 5, gpu_processes: true, llm_lab: false, ollama_loaded: true}
+    forbid_packages: ["^nvidia-", "^libnvidia-", "^linux-(image|headers|modules)", "dkms", "^cuda-drivers",
+                      "^docker", "^containerd"]
+
+  workstation:
+    description: "Operator machines, including the one that runs fleet-maint."
+    auto_apply: false
+    manual_only_reason: "the runner must never reboot itself unattended"
+    updates: none
+    firmware: false
+    reboot: never
+    busy: {}
+
+  unmanaged:
+    description: "Collected when reachable, never touched (macOS, appliances)."
+    auto_apply: false
+    manual_only_reason: "no deterministic applier for this platform"
+    updates: none
+    firmware: false
+    reboot: never
+    busy: {}
+    apply_supported_os: []
+
+hosts:
+  # --- GB10 pod: one sudo password file per credential group (mode 600, never in git) ---
+  edge1:  {class: gb10-pod, sudo_file: ~/.config/fleet-maint/sudo-edge, lab_hub: "http://lab-hub.example:9406"}
+  edge2:  {class: gb10-pod, sudo_file: ~/.config/fleet-maint/sudo-edge, lab_hub: "http://lab-hub.example:9406"}
+  edge3:  {class: gb10-pod, sudo_file: ~/.config/fleet-maint/sudo-edge, lab_hub: "http://lab-hub.example:9406"}
+  edge4:  {class: gb10-pod, sudo_file: ~/.config/fleet-maint/sudo-edge, lab_hub: "http://lab-hub.example:9406"}
+  dgxs1:  {class: gb10-pod, sudo_file: ~/.config/fleet-maint/sudo-spark, lab_hub: "http://lab-hub.example:9406"}
+  dgxs2:  {class: gb10-pod, sudo_file: ~/.config/fleet-maint/sudo-spark, lab_hub: "http://lab-hub.example:9406"}
+  dgxs3:  {class: gb10-pod, sudo_file: ~/.config/fleet-maint/sudo-spark, lab_hub: "http://lab-hub.example:9406"}
+  dgxs4:  {class: gb10-pod, sudo_file: ~/.config/fleet-maint/sudo-spark, lab_hub: "http://lab-hub.example:9406"}
+  # --- DGX Station ---
+  station1: {class: dgx-station, sudo_file: ~/.config/fleet-maint/sudo-station,
+             reboot_tested: false, note: "set reboot_tested: true only after a manual reboot test"}
+  # --- production ---
+  infer1: {class: gpu-inference-prod}
+  # --- operators and appliances ---
+  ws1:    {class: workstation}
+  nas1:   {class: unmanaged}

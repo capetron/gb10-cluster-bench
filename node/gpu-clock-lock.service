@@ -1,0 +1,20 @@
+# GB10 GPU clock lock: cap the SM clock at boot as a workaround for power-offs at long-prefill onset.
+# Why: GB10 units can soft-power-off (standby draw, no log) on a fast power transient when a long
+# prefill starts on a hot unit at the uncapped boost clock. With the SM clock locked at 300-2200 MHz
+# our killer sequence survived 6 of 6 times vs 2 losses in 2 at default clocks, and 66 long-input
+# onsets on seven loaded units passed with no loss. See docs/power-offs-and-clock-lock.md.
+# Install, check, verify and uninstall with node/install-clock-lock.sh (it rewrites the -lgc range
+# from CLOCK_MIN / CLOCK_MAX).
+[Unit]
+Description=Lock GB10 GPU clocks at 300-2200 MHz (power-off transient workaround)
+After=nvidia-persistenced.service
+Wants=nvidia-persistenced.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/nvidia-smi -lgc 300,2200
+ExecStop=/usr/bin/nvidia-smi -rgc
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

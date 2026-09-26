@@ -62,5 +62,39 @@ class CliTests(unittest.TestCase):
             self.assertTrue("phases" in doc or "rows" in doc, name)
 
 
+class NodeScriptTests(unittest.TestCase):
+    def test_clock_lock_unit_and_installer(self):
+        unit = open(os.path.join(ROOT, "node/gpu-clock-lock.service")).read()
+        self.assertIn("ExecStart=/usr/bin/nvidia-smi -lgc 300,2200", unit)
+        self.assertIn("ExecStop=/usr/bin/nvidia-smi -rgc", unit)
+        r = subprocess.run(["bash", "node/install-clock-lock.sh", "--help"], capture_output=True,
+                           text=True, cwd=ROOT)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("--verify", r.stdout)
+
+    def test_memfrag_verdicts_with_fake_ssh(self):
+        # a fake ssh on PATH answers the three reads; no network, no root
+        pti = "Node    0, zone   Normal, type    Unmovable " + " ".join(["%d"] * 14)
+        with tempfile.TemporaryDirectory() as t:
+            fake = os.path.join(t, "ssh")
+            with open(fake, "w") as f:
+                f.write("#!/bin/bash\n"
+                        'case "$*" in\n'
+                        '  *pagetypeinfo*) if [[ "$*" == *frag* ]]; then echo "%s"; else echo "%s"; fi;;\n'
+                        '  *uptime*) echo "7200.00 100.00";;\n'
+                        '  *buddyinfo*) echo "Node 0, zone   Normal 1 1 1 1 1 1 1 1 1 1 1 1 1 3000";;\n'
+                        "esac\n" % (pti % ((0,) * 10 + (5000, 0, 0, 10)),
+                                     pti % ((10,) + (0,) * 12 + (10,))))
+            os.chmod(fake, 0o755)
+            env = dict(os.environ, PATH=t + os.pathsep + os.environ["PATH"], SUDO_PASSWORD_FILE="none")
+            r = subprocess.run(["bash", "node/memfrag-check.sh", "fresh-node", "frag-node"],
+                               capture_output=True, text=True, cwd=ROOT, env=env)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            lines = {ln.split()[0]: ln for ln in r.stdout.splitlines()[1:]}
+            self.assertIn("FRESH", lines["fresh-node"])
+            self.assertIn("FRAGMENTED", lines["frag-node"])
+            self.assertIn("93.8", lines["fresh-node"])  # 3000 blocks of 32 MiB
+
+
 if __name__ == "__main__":
     unittest.main()

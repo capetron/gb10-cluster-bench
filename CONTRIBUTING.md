@@ -11,7 +11,8 @@ Thanks for helping. The most useful contributions are:
 Ground rules:
 
 - Tools under `node/`, `cluster/` and `power/` stay read-only unless the script name says
-  otherwise (`install-kho-hotfix.py` is the one exception, and it refuses to run on a busy node).
+  otherwise. The exceptions are `install-kho-hotfix.py` (it refuses to run on a busy node) and
+  `install-clock-lock.sh` (it installs a boot unit and changes nothing else).
 - No new runtime dependencies for `bench/` (Python standard library only). `fleet-maint/` may use
   PyYAML.
 - Run `./setup.sh` before opening a pull request; it runs every offline test.

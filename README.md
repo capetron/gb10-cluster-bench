@@ -28,6 +28,8 @@ keep an eight-node pod uniform enough to benchmark.
 | `node/gpu-burn.sh` | 15 s fp16 matmul burn plus a memory-copy probe, with clocks and power sampled: catches a clock-latched unit before it skews a run. |
 | `node/verify-versions.sh` | Read-only table of kernel, driver, VBIOS, EC and SoC firmware, pending updates and fabric NICs per node. |
 | `node/parity-check.sh` | Read-only swap and OOM-daemon parity across nodes. |
+| `node/gpu-clock-lock.service`, `node/install-clock-lock.sh` | Boot-time GPU clock lock (`nvidia-smi -lgc 300,2200`) that stopped our long-prefill power-offs, with an idempotent installer and `--check`, `--verify` (burn test) and `--uninstall`. See [docs/power-offs-and-clock-lock.md](docs/power-offs-and-clock-lock.md). |
+| `node/memfrag-check.sh` | Read-only FRESH / FRAGMENTED verdict per node: has an engine run since boot left the small free blocks that cost 3-5% decode? See [docs/memory-bandwidth-reboot-before-launch.md](docs/memory-bandwidth-reboot-before-launch.md). |
 | `node/install-kho-hotfix.py` | Installs NVIDIA's `kho=off` GB10 kernel hotfix on one node, reboots, verifies. |
 | `node/fwupd-pending-list.py` | Pending firmware updates, one line per device. |
 | `cluster/watch-serve.sh` | Waits for a multi-node vLLM API and fails fast the moment any rank dies (a lost rank otherwise hangs forever). |
@@ -36,7 +38,7 @@ keep an eight-node pod uniform enough to benchmark.
 | `fleet-maint/` | Deterministic OS and firmware maintenance for a GPU fleet: read-only collector, policy classes, approval-gated applier with canary, busy detection, maintenance windows and post-update verification. No model makes any decision. 78 unit tests. Busy detection reads running containers, GPU utilization and Ollama by default; the optional `lab_hub` hook also asks a job-scheduler HTTP endpoint (`/api/services`, `/api/jobs` returning JSON) whether a node holds a GPU lock or a live job. Leave it unset and set `busy.llm_lab: false` if you have no scheduler. |
 | `recipes/` | The vLLM launch commands and NCCL environment behind every result. |
 | `results/` | Raw result JSONs and a summary table. |
-| `docs/` | [Methodology](docs/METHODOLOGY.md) and the [bias audit](docs/BIAS-AUDIT.md). |
+| `docs/` | [Methodology](docs/METHODOLOGY.md), the [bias audit](docs/BIAS-AUDIT.md), and the two stability and bandwidth write-ups below. |
 
 ## Quick start
 
@@ -48,6 +50,8 @@ git clone https://github.com/capetron/gb10-cluster-bench && cd gb10-cluster-benc
 export CLUSTER_HOSTS="node1 node2 node3 node4"
 node/verify-versions.sh          # firmware and driver identical?
 node/parity-check.sh             # swap and OOM daemon identical?
+node/install-clock-lock.sh --check   # clock lock active? (see docs/power-offs-and-clock-lock.md)
+node/memfrag-check.sh            # FRESH? if FRAGMENTED, reboot before launching
 ssh node1 'bash -s' < node/gpu-burn.sh
 
 # 2. the battery against a running engine (OpenAI-compatible)
@@ -90,6 +94,20 @@ replicas beat one large tensor-parallel group for many users; prefill is the GB1
 (one GB300 prefills 12-15x faster than four GB10s at 16k-128k input); and speculative decoding is
 33-52% faster on code than on prose, so check which one a headline number used.
 
+## Stability and bandwidth findings (2026-09)
+
+- [Power-offs at long-prefill onset](docs/power-offs-and-clock-lock.md): hot GB10 units switched
+  themselves off, with nothing in the logs, a few seconds into a 131k-token prefill. Locking the
+  GPU clock at 300-2200 MHz took one unit from 2 losses in 2 to 0 in 6 on the same sequence, then
+  seven loaded units ran 66 long-input onsets with no loss, at 1-3% single-user decode on the
+  test unit. A workaround pending NVIDIA, not a proven root cause.
+- [Reboot before you launch](docs/memory-bandwidth-reboot-before-launch.md): identical units read
+  262 GB/s or 238 GB/s depending on how many engines had run since boot, because the driver
+  hands the next engine the small free blocks the last one left. A reboot restored 262 GB/s and
+  4-5% decode; `drop_caches`, `compact_memory` and `cma=128M` did not.
+- Blog write-up: https://petronellatech.com/blog/dgx-spark-shutdown-under-load-our-8-unit-gb10-diagnosis/
+  (TBD, not yet published).
+
 ## Method in one paragraph
 
 Correctness gate before any speed number. Steady-state windows, not bursts: N users each keep one
@@ -108,6 +126,8 @@ read from the engine. Wall power per outlet. Details and sources in
   check for GB10 clusters.
 - [Self-hosted LLM benchmarks for private AI](https://petronellatech.com/ai/llm-benchmarks/)
   (Petronella Technology Group, Inc.)
+- [NVIDIA DGX Spark](https://petronellatech.com/hardware/dgx-spark/): the hardware, and our notes
+  on running it (Petronella Technology Group, Inc.)
 - [DGX Spark cluster cable](https://petronellatech.com/hardware/dgx-spark-cluster-cable/): the
   0.5 m QSFP112 DAC we use between GB10 nodes.
 

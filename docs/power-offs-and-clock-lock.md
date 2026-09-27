@@ -157,16 +157,19 @@ Several owners report the same symptom (unit off, not rebooting, no crash lines,
 - [NVIDIA forum 373251](https://forums.developer.nvidia.com/t/dgx-spark-gb10-reproducibly-hard-powers-off-under-gpu-load-fully-updated-zero-crash-capture/373251):
   reproducible hard power-off under GPU load, empty pstore, journal truncated mid-line.
 - [NVIDIA forum 377478](https://forums.developer.nvidia.com/t/spark-abruptly-shuts-down/377478):
-  NVIDIA staff say shutdown issues "are being investigated"; a user reports
-  `nvidia-smi -lgc 300,2400` as part of a fix.
+  an NVIDIA moderator says shutdowns reported by some DGX Spark/GB10 users are being investigated,
+  that they can be thermal or current-related, and describes capping the GPU clock with
+  `nvidia-smi -lgc` (plus a boot-time systemd unit) as a practical community mitigation. The same
+  post suggests `nvidia-smi -q -d CLOCK` to check the lock; on driver 580.178.04 that shows nothing
+  different for us (see "Install and verify").
 - [ai-muninn GX10 write-up](https://ai-muninn.com/en/blog/gx10-thermal-hard-poweroff): hard
-  power-offs reproduced on purpose; a 2200 MHz clock lock stopped them at about 9% throughput
-  cost.
+  power-offs reproduced on purpose; a 2200 MHz clock lock stopped them, with the run taking about
+  9% longer.
 - [note.com write-up](https://note.com/nob75note/n/ned4cc56ead79): power swinging 18-95 W in step
   with vLLM prefill; the author concludes over-current rather than heat.
 - [NVIDIA forum 362585](https://forums.developer.nvidia.com/t/msi-edgexpert-suddenly-power-off-during-llama-benchy-possible-pd-firmware-issue/362585):
-  an MSI EdgeXpert power-off that a power adapter swap did not fix; cites SoC FW 2.152.15 and PD
-  FW 5.22 as the fix. Our test unit already ran newer SoC firmware and PD 5.22.
+  an MSI EdgeXpert power-off that swapping the power adapter with a working unit did not fix; the
+  owner's unit was eventually replaced. fwupd reported no newer firmware for our test unit.
 
 [inferred] More than one fault (over-current, a hidden thermal sensor, firmware) may produce the
 same log-less power-off. The clock cap is the mitigation reported most consistently.

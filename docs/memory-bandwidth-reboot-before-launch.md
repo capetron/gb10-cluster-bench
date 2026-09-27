@@ -20,7 +20,8 @@ saved file; **[inferred]** = our reasoning from measured data.
 
 ## The parity study [measured]
 
-All 8 units were checked first for config drift: same kernel, driver, VBIOS, firmware, clock
+All 8 units were checked first for config drift: same kernel, driver, VBIOS, firmware versions (one unit has an older BIOS build date with the
+same version string; the slow tier includes units with both dates, so it is not the cause), clock
 lock (see [power-offs-and-clock-lock.md](power-offs-and-clock-lock.md)), CPU governor, THP,
 swap, 128 GB of LPDDR5 at 8533 MT/s (per SMBIOS), container image, model bytes (sha256) and engine
 config. Spec-decode acceptance was 0.444-0.448 on every unit. Under load the SM clock median
@@ -122,6 +123,7 @@ variable was the number of engine launches since boot (next section).
   Spark read 165 GB/s vs 254-261 on its peers after 30 h of serving, restored after an AC drain.
   That is a different, half-speed fault, not this 238 vs 262 tier.
 - [NVIDIA forum 383926](https://forums.developer.nvidia.com/t/upgrade-to-7-6-0-kernel-7-0-0-1019-nvidia-system-wide-slowdown-50-60/383926):
-  a 50-60% slowdown on the 7.6.0 image, traced there to a 30 W power-delivery fallback that
-  `kho=off` fixes; `cma=128M` was suggested alongside it. We tested `cma=128M` and saw no effect
+  a 50-60% slowdown on the 7.6.0 image with several causes discussed there (among them a CMA
+  footprint problem, an SM clock clamp and a 30 W power-delivery fallback); `cma=128M kho=off` was
+  suggested, and a moderator points to the `kho=off` hotfix. We tested `cma=128M` and saw no benefit
   on this tier; `kho=off` was already installed on all 8 (see `node/install-kho-hotfix.py`).

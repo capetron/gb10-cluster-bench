@@ -106,7 +106,7 @@ replicas beat one large tensor-parallel group for many users; prefill is the GB1
   hands the next engine the small free blocks the last one left. A reboot restored 262 GB/s and
   4-5% decode; `drop_caches`, `compact_memory` and `cma=128M` did not.
 - Blog write-up: https://petronellatech.com/blog/dgx-spark-shutdown-under-load-our-8-unit-gb10-diagnosis/
-  (TBD, not yet published).
+- Firmware field report: https://petronellatech.com/blog/dgx-spark-firmware-update-what-we-learned-on-8-gb10-units/
 
 ## Method in one paragraph
 
